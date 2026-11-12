@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#101827">
+<title>TAP TWICE</title>
+<style>
+:root{--bg:#101827;--panel:#1b293b;--muted:#aab4c5;--white:#f8fafc;--pink:#ec65a8;--blue:#55c8e8;--yellow:#f5c84b;--green:#73d6a2}
+*{box-sizing:border-box}body{margin:0;min-height:100svh;background:radial-gradient(circle at 50% 0%,#26364d 0,#101827 55%);color:var(--white);font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;display:grid;place-items:center;padding:18px;touch-action:manipulation}
+.game{width:min(100%,430px);display:flex;flex-direction:column;gap:18px}
+header{display:flex;justify-content:space-between;align-items:center}
+.logo{font-size:18px;font-weight:900;letter-spacing:.16em}.tag{font-size:10px;letter-spacing:.13em;color:var(--green);border:1px solid #39785c;border-radius:99px;padding:6px 9px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.stat,.arena,.footer{background:#1b293bcc;border:1px solid #ffffff12;border-radius:20px;padding:16px}
+.label{font-size:10px;color:var(--muted);letter-spacing:.16em;font-weight:700}.number{font-size:34px;font-weight:850;line-height:1.2;margin-top:4px;font-variant-numeric:tabular-nums}
+.arena{padding:20px;min-height:360px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px}
+.target-label{font-size:11px;color:var(--muted);letter-spacing:.18em;font-weight:800}
+.target{width:70px;height:70px;border-radius:50%;box-shadow:0 0 35px color-mix(in srgb,var(--target) 38%,transparent);background:var(--target);border:5px solid #ffffff20}
+.prompt{font-size:14px;color:#d8e1ed;text-align:center;min-height:20px}
+.orbs{width:100%;display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.orb{border:1px solid #ffffff12;border-radius:18px;background:#26364a;min-height:105px;display:grid;place-items:center;gap:8px;color:white;font-weight:750;font-size:10px;letter-spacing:.12em;cursor:pointer;transition:transform .12s,background .12s; -webkit-tap-highlight-color:transparent}
+.orb:active{transform:scale(.94)}.orb:disabled{opacity:.35;cursor:default}
+.dot{width:45px;height:45px;border-radius:50%;background:var(--c);box-shadow:0 0 22px color-mix(in srgb,var(--c) 32%,transparent)}
+.combo{font-size:13px;color:var(--green);font-weight:800;letter-spacing:.12em;min-height:18px}
+.footer{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.best{font-size:12px;color:var(--muted)}button{border:0;border-radius:12px;padding:12px 18px;background:var(--white);color:#101827;font-weight:850;letter-spacing:.04em;font-size:12px;cursor:pointer}
+.overlay{position:fixed;inset:0;background:#08111dcc;display:grid;place-items:center;padding:22px}
+.modal{width:min(100%,350px);background:#1b293b;border:1px solid #ffffff20;border-radius:24px;padding:28px;text-align:center;box-shadow:0 24px 80px #0008}
+.modal h1{font-size:30px;margin:8px 0}.modal p{color:var(--muted);line-height:1.5;font-size:14px}.modal button{width:100%;margin-top:12px;background:var(--green)}
+.hidden{display:none!important}
+@media(min-height:800px){.arena{min-height:410px}.orb{min-height:120px}}
+</style>
+</head>
+<body>
+<main class="game">
+<header><div class="logo">TAP TWICE</div><div class="tag">QUICK GAME</div></header>
+<section class="stats">
+ <div class="stat"><div class="label">SCORE</div><div class="number" id="score">0</div></div>
+ <div class="stat"><div class="label">BEST</div><div class="number" id="best">0</div></div>
+</section>
+<section class="arena">
+ <div class="target-label">TAP THE MATCHING COLOR</div>
+ <div class="target" id="target"></div>
+ <div class="prompt" id="prompt">Find the matching color</div>
+ <div class="orbs" id="orbs"></div>
+ <div class="combo" id="combo">READY?</div>
+</section>
+<section class="footer"><div class="best">Fast fingers. Clear mind.</div><button id="restart">RESTART</button></section>
+</main>
+<div class="overlay" id="overlay">
+ <div class="modal">
+  <div class="tag">ONE MORE ROUND?</div>
+  <h1 id="modalTitle">TAP TWICE</h1>
+  <p id="modalText">Tap the orb that matches the target color. Get a streak going, beat your best score.</p>
+  <button id="play">PLAY NOW</button>
+ </div>
+</div>
+<script>
+const palette=[
+ {name:"PINK",hex:"#ec65a8"},{name:"BLUE",hex:"#55c8e8"},{name:"YELLOW",hex:"#f5c84b"},
+ {name:"GREEN",hex:"#73d6a2"},{name:"PURPLE",hex:"#a995f5"}
+];
+let score=0,streak=0,target=0,choices=[],locked=false,best=Number(localStorage.getItem("tapTwiceBest")||0);
+const $=id=>document.getElementById(id);
+function shuffle(a){return [...a].sort(()=>Math.random()-.5)}
+function draw(){
+ $("score").textContent=score;$("best").textContent=best;
+ $("target").style.setProperty("--target",palette[target].hex);
+ $("prompt").textContent=score<5?"Find the matching color":score<12?"Keep your streak alive":"Stay sharp. It gets faster.";
+ $("combo").textContent=streak>=3?`🔥 ${streak} IN A ROW`:"";
+ $("orbs").innerHTML="";
+ choices.forEach((c,i)=>{
+  const b=document.createElement("button");b.className="orb";b.type="button";
+  b.innerHTML=`<span class="dot" style="--c:${palette[c].hex}"></span><span>TAP</span>`;
+  b.setAttribute("aria-label",`Tap ${palette[c].name}`);
+  b.addEventListener("click",()=>pick(c,b));$("orbs").appendChild(b);
+ });
+}
+function nextRound(){
+ const pool=palette.slice(0,Math.min(3+Math.floor(score/5),palette.length));
+ target=Math.floor(Math.random()*pool.length);
+ const wrong=shuffle(pool.map((_,i)=>i).filter(i=>i!==target)).slice(0,2);
+ choices=shuffle([target,...wrong]);locked=false;draw();
+}
+function pick(c,button){
+ if(locked)return;
+ if(c!==target){locked=true;streak=0;endGame();return;}
+ locked=true;score++;streak++;
+ if(score>best){best=score;localStorage.setItem("tapTwiceBest",best)}
+ button.style.transform="scale(1.08)";
+ $("score").textContent=score;$("best").textContent=best;
+ $("combo").textContent=streak>=3?`🔥 ${streak} IN A ROW`:"NICE!";
+ setTimeout(nextRound,220);
+}
+function start(){score=0;streak=0;$("overlay").classList.add("hidden");nextRound()}
+function endGame(){
+ $("modalTitle").textContent="GAME OVER";
+ $("modalText").textContent=`You scored ${score}. Your best is ${best}. Think you can beat it?`;
+ $("play").textContent="TRY AGAIN";$("overlay").classList.remove("hidden");
+}
+$("play").addEventListener("click",start);$("restart").addEventListener("click",start);
+$("best").textContent=best;
+</script>
+</body>
+</html>
